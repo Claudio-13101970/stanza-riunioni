@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Stanza Riunioni</title>
+</head>
+<body>
+  <h1>Benvenuto nella stanza riunioni!</h1>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    socket.on('connect', () => {
+      console.log('Connesso al server!');
+    });
+  </script>
+</body>
+</html>
