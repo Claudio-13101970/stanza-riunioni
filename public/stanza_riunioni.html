@@ -3,42 +3,94 @@
 <head>
   <meta charset="UTF-8">
   <title>Stanza Riunioni</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      background: #f0f0f0;
-      padding: 20px;
-    }
-    video {
-      width: 45%;
-      margin: 10px;
-      border: 2px solid #333;
-      border-radius: 10px;
-    }
-    button {
-      padding: 10px 20px;
-      font-size: 18px;
-      margin-top: 20px;
-      cursor: pointer;
-    }
-  </style>
-  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
-
   <h1>Stanza Riunioni</h1>
+  
+  <video id="localVideo" autoplay playsinline muted style="width: 300px; border: 1px solid black;"></video>
+  <video id="remoteVideo" autoplay playsinline style="width: 300px; border: 1px solid black;"></video>
 
-  <div>
-    <video id="localVideo" autoplay muted playsinline></video>
-    <video id="remoteVideo" autoplay playsinline></video>
-  </div>
+  <script>
+    const localVideo = document.getElementById('localVideo');
+    const remoteVideo = document.getElementById('remoteVideo');
 
-  <div>
-    <button id="startButton">Inizia</button>
-  </div>
+    let localStream;
+    let peerConnection;
+    const socket = new WebSocket('wss://stanza-riunioni.onrender.com'); // ATTENZIONE: wss:// con S!!
 
-  <script src="/stanza_riunioni.js"></script>
+    const config = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' }
+      ]
+    };
 
+    socket.addEventListener('open', () => {
+      console.log('WebSocket connesso');
+    });
+
+    socket.addEventListener('message', async (message) => {
+      const data = JSON.parse(message.data);
+      console.log('Messaggio WebSocket:', data);
+
+      switch (data.type) {
+        case 'offer':
+          await createPeerConnection();
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+          const answer = await peerConnection.createAnswer();
+          await peerConnection.setLocalDescription(answer);
+          socket.send(JSON.stringify({ type: 'answer', answer: answer }));
+          break;
+
+        case 'answer':
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+          break;
+
+        case 'candidate':
+          if (peerConnection) {
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            } catch (e) {
+              console.error('Errore aggiungendo candidato ICE', e);
+            }
+          }
+          break;
+      }
+    });
+
+    async function start() {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+
+      socket.addEventListener('open', async () => {
+        await createPeerConnection();
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.send(JSON.stringify({ type: 'offer', offer: offer }));
+      });
+    }
+
+    async function createPeerConnection() {
+      peerConnection = new RTCPeerConnection(config);
+
+      localStream.getTracks().forEach(track => {
+        peerConnection.addTrack(track, localStream);
+      });
+
+      peerConnection.addEventListener('track', event => {
+        if (remoteVideo.srcObject !== event.streams[0]) {
+          remoteVideo.srcObject = event.streams[0];
+          console.log('Ricevuto stream remoto');
+        }
+      });
+
+      peerConnection.addEventListener('icecandidate', event => {
+        if (event.candidate) {
+          socket.send(JSON.stringify({ type: 'candidate', candidate: event.candidate }));
+        }
+      });
+    }
+
+    start();
+  </script>
 </body>
 </html>
