@@ -13,19 +13,32 @@ app.get('/stanza_riunioni', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'stanza_riunioni.html'));
 });
 
-io.on('connection', (socket) => {
-  socket.broadcast.emit('user-connected', socket.id);
+const users = {};
 
-  socket.on('disconnect', () => {
-    socket.broadcast.emit('user-disconnected', socket.id);
+io.on('connection', (socket) => {
+  console.log('Nuovo utente connesso:', socket.id);
+
+  // Aggiungi l'utente
+  users[socket.id] = socket;
+
+  // Manda la lista degli utenti esistenti
+  socket.emit('all-users', Object.keys(users).filter(id => id !== socket.id));
+
+  // Avvisa gli altri che è entrato
+  socket.broadcast.emit('user-joined', socket.id);
+
+  socket.on('signal', ({ to, signal }) => {
+    io.to(to).emit('signal', { from: socket.id, signal });
   });
 
-  socket.on('signal', data => {
-    io.to(data.to).emit('signal', { from: socket.id, signal: data.signal });
+  socket.on('disconnect', () => {
+    console.log('Utente disconnesso:', socket.id);
+    delete users[socket.id];
+    socket.broadcast.emit('user-left', socket.id);
   });
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server avviato sulla porta ${PORT}`);
+  console.log(`Server in ascolto sulla porta ${PORT}`);
 });

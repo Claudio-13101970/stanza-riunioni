@@ -32,7 +32,6 @@ async function startVideo() {
   };
   localStream = await navigator.mediaDevices.getUserMedia(constraints);
   addVideoStream(localStream, socket.id, true);
-  socket.emit('ready');
 }
 
 function addVideoStream(stream, id, muted = false) {
@@ -63,6 +62,7 @@ function adjustVideoLayout() {
 startButton.onclick = async () => {
   await getDevices();
   await startVideo();
+  socket.emit('ready');
 };
 
 shareButton.onclick = async () => {
@@ -79,9 +79,20 @@ leaveButton.onclick = () => {
   window.location.reload();
 };
 
-socket.on('user-connected', async (id) => {
-  const peer = createPeer(id);
-  peers[id] = peer;
+socket.on('all-users', async (users) => {
+  for (const userId of users) {
+    const peer = createPeer(userId);
+    peers[userId] = peer;
+    localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+    socket.emit('signal', { to: userId, signal: offer });
+  }
+});
+
+socket.on('user-joined', async (userId) => {
+  const peer = createPeer(userId);
+  peers[userId] = peer;
   localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
 });
 
@@ -99,7 +110,7 @@ socket.on('signal', async ({ from, signal }) => {
   }
 });
 
-socket.on('user-disconnected', (id) => {
+socket.on('user-left', (id) => {
   if (peers[id]) {
     peers[id].close();
     delete peers[id];
