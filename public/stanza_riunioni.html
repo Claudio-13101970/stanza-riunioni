@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="it">
 <head>
@@ -9,14 +8,16 @@
 </head>
 <body>
   <header>Sala Riunioni</header>
-  <main id="videos"></main>
-  <div id="controls">
-    <select id="cameraSelect"></select>
-    <select id="micSelect"></select>
-    <button id="startButton">Avvia</button>
-    <button id="shareScreenButton">Condividi Schermo</button>
-    <button id="leaveButton">Esci</button>
-  </div>
+  <main id="videosContainer"></main>
+  <footer>
+    <div id="controls">
+      <select id="cameraSelect"></select>
+      <select id="micSelect"></select>
+      <button id="startButton">Avvia Video</button>
+      <button id="shareButton">Condividi Schermo</button>
+      <button id="leaveButton">Esci</button>
+    </div>
+  </footer>
   <script src="/socket.io/socket.io.js"></script>
   <script src="stanza_riunioni.js"></script>
 </body>

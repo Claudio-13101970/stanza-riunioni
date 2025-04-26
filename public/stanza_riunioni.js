@@ -1,15 +1,13 @@
-
 const socket = io();
-const videosContainer = document.getElementById('videos');
+const videosContainer = document.getElementById('videosContainer');
 const cameraSelect = document.getElementById('cameraSelect');
 const micSelect = document.getElementById('micSelect');
 const startButton = document.getElementById('startButton');
-const shareScreenButton = document.getElementById('shareScreenButton');
+const shareButton = document.getElementById('shareButton');
 const leaveButton = document.getElementById('leaveButton');
 
 let localStream;
-let peers = {};
-let myId;
+const peers = {};
 
 async function getDevices() {
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -27,132 +25,102 @@ async function getDevices() {
   });
 }
 
-async function startStream() {
+async function startVideo() {
   const constraints = {
     video: { deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined },
     audio: { deviceId: micSelect.value ? { exact: micSelect.value } : undefined }
   };
   localStream = await navigator.mediaDevices.getUserMedia(constraints);
-  addVideoStream(localStream, myId, true);
+  addVideoStream(localStream, socket.id, true);
+  socket.emit('ready');
 }
 
-function addVideoStream(stream, id, isLocal = false) {
+function addVideoStream(stream, id, muted = false) {
   let video = document.getElementById(id);
   if (!video) {
     video = document.createElement('video');
     video.id = id;
     video.autoplay = true;
     video.playsInline = true;
-    if (isLocal) video.muted = true;
+    video.muted = muted;
     videosContainer.appendChild(video);
   }
   video.srcObject = stream;
-  adjustVideoSize();
+  adjustVideoLayout();
 }
 
-function adjustVideoSize() {
+function adjustVideoLayout() {
   const videos = document.querySelectorAll('video');
-  const total = videos.length;
-  let size = '30%';
-  if (total === 1) size = '80%';
-  if (total === 2) size = '45%';
-  if (total > 2) size = '30%';
+  let width = '45%';
+  if (videos.length <= 2) width = '45%';
+  else if (videos.length <= 4) width = '30%';
+  else width = '22%';
   videos.forEach(video => {
-    video.style.width = size;
+    video.style.width = width;
   });
 }
 
 startButton.onclick = async () => {
   await getDevices();
-  await startStream();
-  socket.emit('offer', { offer: await createOffer() });
+  await startVideo();
 };
 
-shareScreenButton.onclick = async () => {
+shareButton.onclick = async () => {
   const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-  const videoTrack = screenStream.getVideoTracks()[0];
-  for (let peerId in peers) {
-    const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
-    if (sender) sender.replaceTrack(videoTrack);
-  }
-  videoTrack.onended = async () => {
-    const videoTrack = localStream.getVideoTracks()[0];
-    for (let peerId in peers) {
-      const sender = peers[peerId].getSenders().find(s => s.track.kind === 'video');
-      if (sender) sender.replaceTrack(videoTrack);
-    }
-  };
+  const screenTrack = screenStream.getVideoTracks()[0];
+  Object.values(peers).forEach(peer => {
+    const sender = peer.getSenders().find(s => s.track.kind === 'video');
+    if (sender) sender.replaceTrack(screenTrack);
+  });
 };
 
 leaveButton.onclick = () => {
-  if (localStream) {
-    localStream.getTracks().forEach(track => track.stop());
-  }
   socket.disconnect();
-  location.reload();
+  window.location.reload();
 };
 
-socket.on('connect', () => {
-  myId = socket.id;
+socket.on('user-connected', async (id) => {
+  const peer = createPeer(id);
+  peers[id] = peer;
+  localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
 });
 
-socket.on('offer', async ({ offer, id }) => {
-  const peerConnection = createPeerConnection(id);
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  socket.emit('answer', { answer: answer, to: id });
-});
-
-socket.on('answer', async ({ answer, id }) => {
-  if (peers[id]) {
-    await peers[id].setRemoteDescription(new RTCSessionDescription(answer));
+socket.on('signal', async ({ from, signal }) => {
+  if (!peers[from]) {
+    const peer = createPeer(from);
+    peers[from] = peer;
+    localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
   }
-});
-
-socket.on('candidate', async ({ candidate, id }) => {
-  if (peers[id]) {
-    try {
-      await peers[id].addIceCandidate(new RTCIceCandidate(candidate));
-    } catch (e) {
-      console.error(e);
-    }
+  await peers[from].setRemoteDescription(new RTCSessionDescription(signal));
+  if (signal.type === 'offer') {
+    const answer = await peers[from].createAnswer();
+    await peers[from].setLocalDescription(answer);
+    socket.emit('signal', { to: from, signal: answer });
   }
 });
 
 socket.on('user-disconnected', (id) => {
-  const video = document.getElementById(id);
-  if (video) {
-    video.classList.add('fade-out');
-    setTimeout(() => video.remove(), 500);
-    adjustVideoSize();
-  }
   if (peers[id]) {
     peers[id].close();
     delete peers[id];
   }
+  const video = document.getElementById(id);
+  if (video) {
+    video.classList.add('fade-out');
+    setTimeout(() => video.remove(), 500);
+  }
+  adjustVideoLayout();
 });
 
-function createPeerConnection(id) {
-  const peerConnection = new RTCPeerConnection({
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-  });
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-  peerConnection.ontrack = (event) => {
-    addVideoStream(event.streams[0], id);
-  };
-  peerConnection.onicecandidate = (event) => {
+function createPeer(id) {
+  const peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  peer.onicecandidate = (event) => {
     if (event.candidate) {
-      socket.emit('candidate', { candidate: event.candidate });
+      socket.emit('signal', { to: id, signal: event.candidate });
     }
   };
-  peers[id] = peerConnection;
-  return peerConnection;
-}
-
-async function createOffer() {
-  const peerConnection = createPeerConnection(socket.id);
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-  return offer;
+  peer.ontrack = (event) => {
+    addVideoStream(event.streams[0], id);
+  };
+  return peer;
 }
