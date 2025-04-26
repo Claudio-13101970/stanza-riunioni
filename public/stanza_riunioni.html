@@ -1,90 +1,22 @@
+
 <!DOCTYPE html>
 <html lang="it">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sala Riunioni</title>
-  <link rel="stylesheet" type="text/css" href="style.css">
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #f0f2f5;
-      display: flex;
-      flex-direction: column;
-      height: 100vh;
-    }
-    header {
-      background-color: #02457a;
-      color: white;
-      padding: 10px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: bold;
-    }
-    #videos {
-      flex: 1;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-      padding: 10px;
-    }
-    video {
-      background-color: black;
-      border-radius: 8px;
-      transition: all 0.5s ease;
-      width: 45%;
-      height: auto;
-      max-height: 40vh;
-    }
-    footer {
-      background-color: #02457a;
-      padding: 10px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-    select, button {
-      padding: 8px 12px;
-      border-radius: 6px;
-      border: none;
-      margin: 0 5px;
-      font-size: 14px;
-    }
-    button {
-      background-color: #0353a4;
-      color: white;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    button:hover {
-      background-color: #023e7d;
-    }
-    .controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
-    }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>Sala Riunioni</header>
-  <div id="videos"></div>
-  <footer>
-    <div class="controls">
-      <select id="cameraSelect"></select>
-      <select id="microphoneSelect"></select>
-    </div>
-    <div class="controls">
-      <button id="startButton">Avvia</button>
-      <button id="shareButton">Condividi Schermo</button>
-      <button id="leaveButton">Esci</button>
-    </div>
-  </footer>
-
+  <main id="videos"></main>
+  <div id="controls">
+    <select id="cameraSelect"></select>
+    <select id="micSelect"></select>
+    <button id="startButton">Avvia</button>
+    <button id="shareScreenButton">Condividi Schermo</button>
+    <button id="leaveButton">Esci</button>
+  </div>
   <script src="/socket.io/socket.io.js"></script>
   <script src="stanza_riunioni.js"></script>
 </body>
