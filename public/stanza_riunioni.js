@@ -1,92 +1,107 @@
 const socket = io();
 
-let localStream;
-let remoteStream;
-let peerConnection;
-const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
+const videosDiv = document.getElementById('videos');
 const startButton = document.getElementById('startButton');
-const shareScreenButton = document.getElementById('shareScreenButton');
-const audioSelect = document.getElementById('audioSelect');
-const videoSelect = document.getElementById('videoSelect');
+const shareButton = document.getElementById('shareButton');
+const leaveButton = document.getElementById('leaveButton');
+const cameraSelect = document.getElementById('cameraSelect');
+const microphoneSelect = document.getElementById('microphoneSelect');
 
-startButton.addEventListener('click', start);
-shareScreenButton.addEventListener('click', shareScreen);
+let localStream;
+let peers = {};
 
-async function enumerateDevices() {
+async function getDevices() {
   const devices = await navigator.mediaDevices.enumerateDevices();
-  audioSelect.innerHTML = '';
-  videoSelect.innerHTML = '';
+  cameraSelect.innerHTML = '';
+  microphoneSelect.innerHTML = '';
+
   devices.forEach(device => {
     const option = document.createElement('option');
     option.value = device.deviceId;
-    option.text = device.label || `${device.kind}`;
-    if (device.kind === 'audioinput') audioSelect.appendChild(option);
-    if (device.kind === 'videoinput') videoSelect.appendChild(option);
+    option.text = device.label || device.kind;
+
+    if (device.kind === 'videoinput') {
+      cameraSelect.appendChild(option);
+    } else if (device.kind === 'audioinput') {
+      microphoneSelect.appendChild(option);
+    }
   });
 }
 
-async function start() {
-  const constraints = {
-    video: { deviceId: videoSelect.value ? { exact: videoSelect.value } : undefined },
-    audio: { deviceId: audioSelect.value ? { exact: audioSelect.value } : undefined }
-  };
-  localStream = await navigator.mediaDevices.getUserMedia(constraints);
-  localVideo.srcObject = localStream;
+startButton.onclick = async () => {
+  await startLocalStream();
+};
 
-  peerConnection = new RTCPeerConnection(configuration);
-
-  peerConnection.ontrack = event => {
-    if (!remoteStream) {
-      remoteStream = new MediaStream();
-      remoteVideo.srcObject = remoteStream;
-    }
-    remoteStream.addTrack(event.track);
-  };
-
-  peerConnection.onicecandidate = event => {
-    if (event.candidate) socket.emit('new-ice-candidate', event.candidate);
-  };
-
-  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-
-  const offer = await peerConnection.createOffer();
-  await peerConnection.setLocalDescription(offer);
-  socket.emit('video-offer', offer);
-}
-
-async function shareScreen() {
+shareButton.onclick = async () => {
   const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
   const screenTrack = screenStream.getTracks()[0];
-  const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-  sender.replaceTrack(screenTrack);
+  for (let id in peers) {
+    let sender = peers[id].getSenders().find(s => s.track.kind === 'video');
+    if (sender) sender.replaceTrack(screenTrack);
+  }
+};
 
-  screenTrack.onended = async () => {
-    const videoTrack = localStream.getVideoTracks()[0];
-    sender.replaceTrack(videoTrack);
+leaveButton.onclick = () => {
+  socket.disconnect();
+  window.location.href = '/';
+};
+
+async function startLocalStream() {
+  const constraints = {
+    video: { deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined },
+    audio: { deviceId: microphoneSelect.value ? { exact: microphoneSelect.value } : undefined }
   };
+  localStream = await navigator.mediaDevices.getUserMedia(constraints);
+  const localVideo = document.createElement('video');
+  localVideo.srcObject = localStream;
+  localVideo.muted = true;
+  localVideo.autoplay = true;
+  localVideo.playsInline = true;
+  videosDiv.appendChild(localVideo);
+
+  socket.emit('offer', { offer: await createOffer() });
 }
 
-socket.on('video-offer', async (offer) => {
-  if (!peerConnection) await start();
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  socket.emit('video-answer', answer);
-});
+async function createOffer() {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+  pc.ontrack = (event) => {
+    const remoteVideo = document.createElement('video');
+    remoteVideo.srcObject = event.streams[0];
+    remoteVideo.autoplay = true;
+    remoteVideo.playsInline = true;
+    videosDiv.appendChild(remoteVideo);
+  };
+  pc.onicecandidate = (event) => {
+    if (event.candidate) {
+      socket.emit('candidate', { candidate: event.candidate });
+    }
+  };
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  return offer;
+}
 
-socket.on('video-answer', async (answer) => {
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-});
-
-socket.on('new-ice-candidate', async (candidate) => {
-  try {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-  } catch (error) {
-    console.error('Errore ICE', error);
+socket.on('user-disconnected', (id) => {
+  if (peers[id]) {
+    peers[id].close();
+    delete peers[id];
+    refreshVideos();
   }
 });
 
-enumerateDevices();
+async function refreshVideos() {
+  videosDiv.innerHTML = '';
+  if (localStream) {
+    const localVideo = document.createElement('video');
+    localVideo.srcObject = localStream;
+    localVideo.muted = true;
+    localVideo.autoplay = true;
+    localVideo.playsInline = true;
+    videosDiv.appendChild(localVideo);
+  }
+}
+
+getDevices();

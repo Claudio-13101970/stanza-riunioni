@@ -1,0 +1,78 @@
+/* Stile per la pagina Sala Riunioni */
+body {
+  font-family: Arial, sans-serif;
+  background-color: #f0f0f0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  flex-direction: column;
+  text-align: center;
+}
+
+h1 {
+  background-color: #004080; /* Colore blu scuro */
+  color: white;
+  padding: 20px;
+  width: 100%;
+  margin: 0;
+}
+
+.video-container {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+video {
+  border: 2px solid #004080;
+  border-radius: 8px;
+  width: 320px;
+  height: 240px;
+}
+
+#localVideo {
+  transform: rotateY(180deg); /* Ruota il video locale */
+}
+
+.controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  z-index: 10;
+}
+
+button, select {
+  padding: 10px 20px;
+  background-color: #004080;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+button:hover, select:hover {
+  background-color: #003366;
+}
+
+button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+button#exit-button {
+  background-color: #e74c3c;
+}
+
+button#exit-button:hover {
+  background-color: #c0392b;
+}
