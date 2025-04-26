@@ -32,6 +32,8 @@ async function startVideo() {
   };
   localStream = await navigator.mediaDevices.getUserMedia(constraints);
   addVideoStream(localStream, socket.id, true);
+
+  socket.emit('ready');
 }
 
 function addVideoStream(stream, id, muted = false) {
@@ -62,7 +64,6 @@ function adjustVideoLayout() {
 startButton.onclick = async () => {
   await getDevices();
   await startVideo();
-  socket.emit('ready');
 };
 
 shareButton.onclick = async () => {
