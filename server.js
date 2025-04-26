@@ -1,7 +1,8 @@
+const path = require('path'); // <-- UNA sola volta!
+
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
-const path = require('path'); // <--- QUESTA parte era mancante
 
 const app = express();
 const server = http.createServer(app);
@@ -39,4 +40,5 @@ io.on('connection', (socket) => {
 // Avvia il server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server WebSocket in ascolto sulla porta ${
+  console.log(`Server WebSocket in ascolto sulla porta ${PORT}`);
+});
