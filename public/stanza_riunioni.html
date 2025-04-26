@@ -2,59 +2,79 @@
 <html lang="it">
 <head>
   <meta charset="UTF-8">
-  <title>Stanza Riunioni</title>
+  <title>Sala Riunioni</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
       margin: 0;
-      padding: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f0f2f5;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      background-color: #f0f2f5;
+      height: 100vh;
     }
     header {
-      width: 100%;
-      background-color: #007bff;
-      padding: 10px;
+      background-color: #003366;
       color: white;
+      padding: 1rem;
       text-align: center;
-      font-size: 1.5em;
-    }
-    #controls {
-      margin: 10px;
-    }
-    select, button {
-      margin: 5px;
-      padding: 8px;
-      font-size: 1em;
+      font-size: 1.5rem;
     }
     #videos {
+      flex: 1;
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      margin: 10px;
+      align-items: center;
+      padding: 1rem;
+      gap: 1rem;
     }
     video {
       background: black;
-      margin: 5px;
-      border-radius: 8px;
-      max-width: 300px;
-      max-height: 200px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 12px rgba(0,0,0,0.5);
+      width: calc(100% / 2 - 2rem);
+      max-width: 400px;
+      height: auto;
+      transition: all 0.3s ease;
+    }
+    footer {
+      background-color: #003366;
+      padding: 1rem;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      background-color: #0055aa;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover {
+      background-color: #0077dd;
     }
   </style>
 </head>
 <body>
-  <header>Stanza Riunioni</header>
-  <div id="controls">
-    <select id="cameraSelect"></select>
-    <select id="microphoneSelect"></select>
-    <button id="startButton">Avvia</button>
-    <button id="shareScreenButton">Condividi Schermo</button>
-  </div>
+  <header>Sala Riunioni</header>
   <div id="videos">
     <video id="localVideo" autoplay playsinline muted></video>
+    <video id="remoteVideo" autoplay playsinline></video>
   </div>
+  <footer>
+    <select id="audioSelect"></select>
+    <select id="videoSelect"></select>
+    <button id="startButton">Avvia</button>
+    <button id="shareScreenButton">Condividi schermo</button>
+  </footer>
   <script src="/socket.io/socket.io.js"></script>
   <script src="stanza_riunioni.js"></script>
 </body>

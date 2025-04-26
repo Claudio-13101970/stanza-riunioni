@@ -7,15 +7,12 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve i file statici della cartella "public"
 app.use(express.static('public'));
 
-// Servire il file HTML per la stanza riunioni
 app.get('/stanza_riunioni', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'stanza_riunioni.html'));
 });
 
-// Evento di connessione WebSocket
 io.on('connection', (socket) => {
   console.log('Un utente si è connesso');
 
@@ -35,16 +32,11 @@ io.on('connection', (socket) => {
     socket.broadcast.emit('new-ice-candidate', data);
   });
 
-  socket.on('start-screen-share', (data) => {
-    socket.broadcast.emit('start-screen-share', data);
-  });
-
-  socket.on('stop-screen-share', () => {
-    socket.broadcast.emit('stop-screen-share');
+  socket.on('screen-share', (data) => {
+    socket.broadcast.emit('screen-share', data);
   });
 });
 
-// Avvia il server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server WebSocket in ascolto sulla porta ${PORT}`);
