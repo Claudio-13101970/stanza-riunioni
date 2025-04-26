@@ -100,11 +100,16 @@ socket.on('signal', async ({ from, signal }) => {
     const peer = createPeer(from);
     peers[from] = peer;
   }
-  await peers[from].setRemoteDescription(new RTCSessionDescription(signal));
-  if (signal.type === 'offer') {
-    const answer = await peers[from].createAnswer();
-    await peers[from].setLocalDescription(answer);
-    socket.emit('signal', { to: from, signal: answer });
+
+  if (signal.type === 'offer' || signal.type === 'answer') {
+    await peers[from].setRemoteDescription(new RTCSessionDescription(signal));
+    if (signal.type === 'offer') {
+      const answer = await peers[from].createAnswer();
+      await peers[from].setLocalDescription(answer);
+      socket.emit('signal', { to: from, signal: answer });
+    }
+  } else if (signal.candidate) {
+    await peers[from].addIceCandidate(new RTCIceCandidate(signal));
   }
 });
 
