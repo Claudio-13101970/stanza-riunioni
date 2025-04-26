@@ -8,6 +8,9 @@ const io = new Server(server);
 
 // Serve i file statici della cartella "public"
 app.use(express.static('public'));
+app.get('/stanza_riunioni', (req, res) => {
+  res.sendFile(__dirname + '/public/stanza_riunioni.html');
+});
 
 // Evento di connessione WebSocket
 io.on('connection', (socket) => {
