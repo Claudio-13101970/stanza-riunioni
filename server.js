@@ -1,5 +1,4 @@
-const path = require('path'); // <-- UNA sola volta!
-
+const path = require('path');
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -34,6 +33,14 @@ io.on('connection', (socket) => {
 
   socket.on('new-ice-candidate', (data) => {
     socket.broadcast.emit('new-ice-candidate', data);
+  });
+
+  socket.on('start-screen-share', (data) => {
+    socket.broadcast.emit('start-screen-share', data);
+  });
+
+  socket.on('stop-screen-share', () => {
+    socket.broadcast.emit('stop-screen-share');
   });
 });
 
