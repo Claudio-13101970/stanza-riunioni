@@ -1,75 +1,99 @@
 const socket = io();
 
 let localStream;
+let remoteStream;
 let peerConnection;
-const config = {
-  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+const configuration = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' }, // Server STUN pubblico
+  ],
 };
 
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const startButton = document.getElementById('startButton');
+const joinButton = document.getElementById('joinButton');
 
-startButton.onclick = async () => {
+joinButton.addEventListener('click', async () => {
+  await start();
+});
+
+async function start() {
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     localVideo.srcObject = localStream;
 
-    peerConnection = new RTCPeerConnection(config);
-    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+    peerConnection = new RTCPeerConnection(configuration);
 
-    peerConnection.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        socket.emit('ice-candidate', candidate);
+    // Quando riceviamo tracce remote
+    peerConnection.ontrack = (event) => {
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteVideo.srcObject = remoteStream;
+      }
+      remoteStream.addTrack(event.track);
+    };
+
+    // Quando ICE candidate sono generate
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('new-ice-candidate', event.candidate);
       }
     };
 
-    peerConnection.ontrack = ({ streams: [stream] }) => {
-      remoteVideo.srcObject = stream;
-    };
+    // Aggiunge le tracce locali alla connessione
+    localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
 
+    // Creiamo un'offerta
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
-    socket.emit('offer', offer);
-  } catch (err) {
-    console.error('Errore nell’acquisizione dei media:', err);
+
+    // Mandiamo l'offerta via WebSocket
+    socket.emit('video-offer', offer);
+  } catch (error) {
+    console.error('Errore nell\'avviare la stanza:', error);
   }
-};
+}
 
-socket.on('offer', async offer => {
+// Riceviamo un'offerta
+socket.on('video-offer', async (offer) => {
   if (!peerConnection) {
-    peerConnection = new RTCPeerConnection(config);
+    peerConnection = new RTCPeerConnection(configuration);
 
-    peerConnection.onicecandidate = ({ candidate }) => {
-      if (candidate) {
-        socket.emit('ice-candidate', candidate);
+    peerConnection.ontrack = (event) => {
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteVideo.srcObject = remoteStream;
+      }
+      remoteStream.addTrack(event.track);
+    };
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('new-ice-candidate', event.candidate);
       }
     };
-
-    peerConnection.ontrack = ({ streams: [stream] }) => {
-      remoteVideo.srcObject = stream;
-    };
-
-    localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    localVideo.srcObject = localStream;
 
     localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
   }
 
-  await peerConnection.setRemoteDescription(offer);
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
-  socket.emit('answer', answer);
+
+  socket.emit('video-answer', answer);
 });
 
-socket.on('answer', async answer => {
-  await peerConnection.setRemoteDescription(answer);
+// Riceviamo una risposta
+socket.on('video-answer', async (answer) => {
+  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 });
 
-socket.on('ice-candidate', async candidate => {
+// Riceviamo nuovi ICE candidates
+socket.on('new-ice-candidate', async (candidate) => {
   try {
-    await peerConnection.addIceCandidate(candidate);
-  } catch (err) {
-    console.error('Errore ICE candidate', err);
+    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch (error) {
+    console.error('Errore aggiungendo ICE candidate:', error);
   }
 });
