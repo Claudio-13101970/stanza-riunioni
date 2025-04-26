@@ -84,7 +84,6 @@ socket.on('all-users', async (users) => {
   for (const userId of users) {
     const peer = createPeer(userId);
     peers[userId] = peer;
-    localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
     socket.emit('signal', { to: userId, signal: offer });
@@ -94,14 +93,12 @@ socket.on('all-users', async (users) => {
 socket.on('user-joined', async (userId) => {
   const peer = createPeer(userId);
   peers[userId] = peer;
-  localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
 });
 
 socket.on('signal', async ({ from, signal }) => {
   if (!peers[from]) {
     const peer = createPeer(from);
     peers[from] = peer;
-    localStream.getTracks().forEach(track => peer.addTrack(track, localStream));
   }
   await peers[from].setRemoteDescription(new RTCSessionDescription(signal));
   if (signal.type === 'offer') {
@@ -126,13 +123,22 @@ socket.on('user-left', (id) => {
 
 function createPeer(id) {
   const peer = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      peer.addTrack(track, localStream);
+    });
+  }
+
   peer.onicecandidate = (event) => {
     if (event.candidate) {
       socket.emit('signal', { to: id, signal: event.candidate });
     }
   };
+
   peer.ontrack = (event) => {
     addVideoStream(event.streams[0], id);
   };
+
   return peer;
 }
