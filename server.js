@@ -18,14 +18,11 @@ const users = {};
 io.on('connection', (socket) => {
   console.log('Nuovo utente connesso:', socket.id);
 
-  // Aggiungi l'utente
-  users[socket.id] = socket;
-
-  // Manda la lista degli utenti esistenti
-  socket.emit('all-users', Object.keys(users).filter(id => id !== socket.id));
-
-  // Avvisa gli altri che è entrato
-  socket.broadcast.emit('user-joined', socket.id);
+  socket.on('ready', () => {
+    users[socket.id] = socket;
+    socket.emit('all-users', Object.keys(users).filter(id => id !== socket.id));
+    socket.broadcast.emit('user-joined', socket.id);
+  });
 
   socket.on('signal', ({ to, signal }) => {
     io.to(to).emit('signal', { from: socket.id, signal });
