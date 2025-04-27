@@ -126,20 +126,24 @@ socket.on('signal', async ({ from, signal }) => {
   }
 });
 
-// Ricevo toggle camera da remoto
-socket.on('camera-toggled', ({ id, enabled }) => {
-  const vid = document.getElementById(id);
-  if (!vid) return;
-  const track = remoteStreams[id]?.getVideoTracks()[0];
-  if (track) track.enabled = enabled;
+ // Ricevo toggle camera da remoto
+ socket.on('camera-toggled', ({ id, enabled }) => {
+   const vid = document.getElementById(id);
+   if (!vid) return;
 
-  if (!enabled) {
-    vid.classList.add('avatar');
-    setTimeout(() => vid.classList.add('fade-in'), 0);
-  } else {
-    vid.classList.remove('avatar','fade-in');
-  }
-});
+   if (!enabled) {
+     // rimuovo lo stream e faccio comparire l’avatar
+     vid.srcObject = null;
+     vid.classList.add('avatar');
+     setTimeout(() => vid.classList.add('fade-in'), 0);
+   } else {
+     // riattacco lo stream salvato e tolgo l’avatar
+     if (remoteStreams[id]) {
+       vid.srcObject = remoteStreams[id];
+     }
+     vid.classList.remove('avatar', 'fade-in');
+   }
+ });
 
 socket.on('user-left', (id) => {
   if (peers[id]) {
