@@ -33,6 +33,11 @@ io.on('connection', (socket) => {
     delete users[socket.id];
     socket.broadcast.emit('user-left', socket.id);
   });
+
+// riceve toggle camera da un client e rilancia a tutti gli altri
+  socket.on('camera-toggled', ({ id, enabled }) => {
+    socket.broadcast.emit('camera-toggled', { id, enabled });
+  });
 });
 
 const PORT = process.env.PORT || 3000;

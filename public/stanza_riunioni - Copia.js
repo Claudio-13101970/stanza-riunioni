@@ -8,7 +8,6 @@ const leaveButton = document.getElementById('leaveButton');
 
 let localStream;
 const peers = {};
-const remoteStreams = {};    // memorizza gli stream remoti
 
 async function getDevices() {
   const devices = await navigator.mediaDevices.enumerateDevices();
@@ -126,21 +125,6 @@ socket.on('signal', async ({ from, signal }) => {
   }
 });
 
-// quando un altro utente toggla la camera, mostriamo/nascondiamo il suo avatar
-socket.on('camera-toggled', ({ id, enabled }) => {
-  const vid = document.getElementById(id);
-  if (!vid) return;
-  if (!enabled) {
-    // spegniamo il video e facciamo comparire avatar con fade-in
-    vid.srcObject = null;
-    vid.classList.add('avatar');
-    setTimeout(() => vid.classList.add('fade-in'), 0);
-  } else if (remoteStreams[id]) {
-    // riattacchiamo lo stream salvato e rimuoviamo avatar
-    vid.srcObject = remoteStreams[id];
-    vid.classList.remove('avatar', 'fade-in');
-  }
-});
 socket.on('user-left', (id) => {
   if (peers[id]) {
     peers[id].close();
@@ -170,10 +154,8 @@ function createPeer(id) {
   };
 
   peer.ontrack = (event) => {
-  // salva lo stream in remoto e poi lo mostra
-  remoteStreams[id] = event.streams[0];
-  addVideoStream(event.streams[0], id);
-};
+    addVideoStream(event.streams[0], id);
+  };
 
   return peer;
 }
@@ -186,38 +168,35 @@ cameraSelect.addEventListener('change', async () => {
   if (!localStream) return;
 
   const localVideo = document.getElementById(socket.id);
-  const isOn = cameraSelect.value !== 'off';
-  const sender = Object.values(peers)
-    .flatMap(peer => peer.getSenders())
-    .find(s => s.track.kind === 'video');
 
-  if (!isOn) {
+  if (cameraSelect.value === 'off') {
     // Spegni videocamera
+    const sender = Object.values(peers)
+      .flatMap(peer => peer.getSenders())
+      .find(s => s.track.kind === 'video');
     if (sender) sender.replaceTrack(null);
+    // Rimuovi lo stream e mostra avatar
     localVideo.srcObject = null;
     localVideo.classList.add('avatar');
+    // forza il fade-in
     setTimeout(() => localVideo.classList.add('fade-in'), 0);
   } else {
     // Riaccendi videocamera
     const videoTrack = (await navigator.mediaDevices.getUserMedia({
       video: { deviceId: { exact: cameraSelect.value } }
     })).getVideoTracks()[0];
+    const sender = Object.values(peers)
+      .flatMap(peer => peer.getSenders())
+      .find(s => s.track.kind === 'video');
     if (sender) sender.replaceTrack(videoTrack);
-
-    // Aggiorna localStream
-    const oldTrack = localStream.getVideoTracks()[0];
-    localStream.removeTrack(oldTrack);
+    // aggiorna localStream
+    const localSender = localStream.getVideoTracks()[0];
+    localStream.removeTrack(localSender);
     localStream.addTrack(videoTrack);
-
+    // ripristina stream e rimuovi avatar
     localVideo.srcObject = localStream;
     localVideo.classList.remove('avatar', 'fade-in');
   }
-
-  // ← ← ← Qua emetti il toggle, in ENTRAMBI i rami
-  socket.emit('camera-toggled', {
-    id: socket.id,
-    enabled: isOn
-  });
 });
 
 micSelect.addEventListener('change', async () => {
