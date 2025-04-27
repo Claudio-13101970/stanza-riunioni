@@ -42,7 +42,6 @@ video {
   opacity: 0;
   transition: opacity 0.5s ease-out;
 }
-
 .avatar.fade-in {
   opacity: 1;
 }

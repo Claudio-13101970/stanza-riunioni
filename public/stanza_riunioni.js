@@ -126,21 +126,21 @@ socket.on('signal', async ({ from, signal }) => {
   }
 });
 
-// quando un altro utente toggla la camera, mostriamo/nascondiamo il suo avatar
+// Ricevo toggle camera da remoto
 socket.on('camera-toggled', ({ id, enabled }) => {
   const vid = document.getElementById(id);
   if (!vid) return;
+  const track = remoteStreams[id]?.getVideoTracks()[0];
+  if (track) track.enabled = enabled;
+
   if (!enabled) {
-    // spegniamo il video e facciamo comparire avatar con fade-in
-    vid.srcObject = null;
     vid.classList.add('avatar');
     setTimeout(() => vid.classList.add('fade-in'), 0);
-  } else if (remoteStreams[id]) {
-    // riattacchiamo lo stream salvato e rimuoviamo avatar
-    vid.srcObject = remoteStreams[id];
-    vid.classList.remove('avatar', 'fade-in');
+  } else {
+    vid.classList.remove('avatar','fade-in');
   }
 });
+
 socket.on('user-left', (id) => {
   if (peers[id]) {
     peers[id].close();
@@ -182,56 +182,34 @@ function createPeer(id) {
 window.addEventListener('DOMContentLoaded', getDevices);
 
 // Cambio dinamico dei dispositivi
-cameraSelect.addEventListener('change', async () => {
+
+// Gestione toggle videocamera via enabled track
+cameraSelect.addEventListener('change', () => {
   if (!localStream) return;
-
-  const localVideo = document.getElementById(socket.id);
   const isOn = cameraSelect.value !== 'off';
-  const sender = Object.values(peers)
-    .flatMap(peer => peer.getSenders())
-    .find(s => s.track.kind === 'video');
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (videoTrack) videoTrack.enabled = isOn;
 
+  // forza il video element a riprendere lo stesso stream
+  const localVideo = document.getElementById(socket.id);
+  localVideo.srcObject = localStream;
+
+  // UI locale (avatar + fade-in)
   if (!isOn) {
-    // Spegni videocamera
-    if (sender) sender.replaceTrack(null);
-    localVideo.srcObject = null;
     localVideo.classList.add('avatar');
     setTimeout(() => localVideo.classList.add('fade-in'), 0);
   } else {
-    // Riaccendi videocamera
-    const videoTrack = (await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: { exact: cameraSelect.value } }
-    })).getVideoTracks()[0];
-    if (sender) sender.replaceTrack(videoTrack);
-
-    // Aggiorna localStream
-    const oldTrack = localStream.getVideoTracks()[0];
-    localStream.removeTrack(oldTrack);
-    localStream.addTrack(videoTrack);
-
-    localVideo.srcObject = localStream;
-    localVideo.classList.remove('avatar', 'fade-in');
+    localVideo.classList.remove('avatar','fade-in');
   }
 
-  // ← ← ← Qua emetti il toggle, in ENTRAMBI i rami
-  socket.emit('camera-toggled', {
-    id: socket.id,
-    enabled: isOn
-  });
+  // notifico tutti gli altri
+  socket.emit('camera-toggled', { id: socket.id, enabled: isOn });
 });
 
-micSelect.addEventListener('change', async () => {
+micSelect.addEventListener('change', () => {
   if (!localStream) return;
-
-  if (micSelect.value === 'off') {
-    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
-    if (sender) sender.replaceTrack(null);
-  } else {
-    const audioTrack = (await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } })).getAudioTracks()[0];
-    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
-    if (sender) sender.replaceTrack(audioTrack);
-    const localSender = localStream.getAudioTracks()[0];
-    localStream.removeTrack(localSender);
-    localStream.addTrack(audioTrack);
-  }
+  const enabled = micSelect.value !== 'off';
+  localStream.getAudioTracks().forEach(track => {
+    track.enabled = enabled;
+  });
 });
