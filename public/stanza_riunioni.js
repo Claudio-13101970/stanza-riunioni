@@ -13,6 +13,7 @@ async function getDevices() {
   const devices = await navigator.mediaDevices.enumerateDevices();
   cameraSelect.innerHTML = '';
   micSelect.innerHTML = '';
+
   devices.forEach(device => {
     const option = document.createElement('option');
     option.value = device.deviceId;
@@ -23,12 +24,23 @@ async function getDevices() {
       micSelect.appendChild(option);
     }
   });
+
+  // Aggiungiamo manualmente le opzioni "spento"
+  const cameraOffOption = document.createElement('option');
+  cameraOffOption.value = 'off';
+  cameraOffOption.text = 'Videocamera Spenta';
+  cameraSelect.appendChild(cameraOffOption);
+
+  const micOffOption = document.createElement('option');
+  micOffOption.value = 'off';
+  micOffOption.text = 'Microfono Spento';
+  micSelect.appendChild(micOffOption);
 }
 
 async function startVideo() {
   const constraints = {
-    video: { deviceId: cameraSelect.value ? { exact: cameraSelect.value } : undefined },
-    audio: { deviceId: micSelect.value ? { exact: micSelect.value } : undefined }
+    video: { deviceId: cameraSelect.value && cameraSelect.value !== 'off' ? { exact: cameraSelect.value } : undefined },
+    audio: { deviceId: micSelect.value && micSelect.value !== 'off' ? { exact: micSelect.value } : undefined }
   };
   localStream = await navigator.mediaDevices.getUserMedia(constraints);
   addVideoStream(localStream, socket.id, true);
@@ -47,6 +59,7 @@ function addVideoStream(stream, id, muted = false) {
     videosContainer.appendChild(video);
   }
   video.srcObject = stream;
+  video.classList.remove('avatar');
   adjustVideoLayout();
 }
 
@@ -76,7 +89,7 @@ shareButton.onclick = async () => {
 
 leaveButton.onclick = () => {
   socket.disconnect();
-  window.close(); // Chiude la finestra aperta in target=_blank
+  window.close();
 };
 
 socket.on('all-users', async (users) => {
@@ -147,27 +160,41 @@ function createPeer(id) {
   return peer;
 }
 
-// Popola i dispositivi al caricamento
+// Carica dispositivi appena apre
 window.addEventListener('DOMContentLoaded', getDevices);
 
 // Cambio dinamico dei dispositivi
 cameraSelect.addEventListener('change', async () => {
   if (!localStream) return;
-  const videoTrack = (await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } })).getVideoTracks()[0];
-  const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
-  if (sender) sender.replaceTrack(videoTrack);
-  const localSender = localStream.getVideoTracks()[0];
-  localStream.removeTrack(localSender);
-  localStream.addTrack(videoTrack);
-  document.getElementById(socket.id).srcObject = localStream;
+
+  if (cameraSelect.value === 'off') {
+    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
+    if (sender) sender.replaceTrack(null);
+    document.getElementById(socket.id).classList.add('avatar');
+  } else {
+    const videoTrack = (await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } })).getVideoTracks()[0];
+    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
+    if (sender) sender.replaceTrack(videoTrack);
+    const localSender = localStream.getVideoTracks()[0];
+    localStream.removeTrack(localSender);
+    localStream.addTrack(videoTrack);
+    document.getElementById(socket.id).srcObject = localStream;
+    document.getElementById(socket.id).classList.remove('avatar');
+  }
 });
 
 micSelect.addEventListener('change', async () => {
   if (!localStream) return;
-  const audioTrack = (await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } })).getAudioTracks()[0];
-  const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
-  if (sender) sender.replaceTrack(audioTrack);
-  const localSender = localStream.getAudioTracks()[0];
-  localStream.removeTrack(localSender);
-  localStream.addTrack(audioTrack);
+
+  if (micSelect.value === 'off') {
+    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
+    if (sender) sender.replaceTrack(null);
+  } else {
+    const audioTrack = (await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } })).getAudioTracks()[0];
+    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
+    if (sender) sender.replaceTrack(audioTrack);
+    const localSender = localStream.getAudioTracks()[0];
+    localStream.removeTrack(localSender);
+    localStream.addTrack(audioTrack);
+  }
 });
