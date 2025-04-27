@@ -32,6 +32,7 @@ video {
   object-fit: cover;
 }
 
+/* avatar con fade-in */
 .avatar {
   background-color: #014f86;
   background-image: url('data:image/svg+xml;base64,PHN2ZyBmaWxsPSJ3aGl0ZSIgdmlld0JveD0iMCAwIDMyIDMyIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxjaXJjbGUgY3g9IjE2IiBjeT0iMTEiIHI9IjYiLz48cGF0aCBkPSJNMTYgMTljLTUuNTIgMC0xMC0xLjgtMTAtNC41IDAtMi43MiA0LjQ4LTQuNSA5LTEsNC41MiAwIDkgMi4yOCA5IDQuNSAwIDIuNy00LjQ4IDQuNS05IDQuNXoiLz48L3N2Zz4=');
@@ -39,7 +40,14 @@ video {
   background-position: center;
   background-repeat: no-repeat;
   object-fit: contain;
+  opacity: 0;
+  transition: opacity 0.5s ease-out;
 }
+
+.avatar.fade-in {
+  opacity: 1;
+}
+
 
 #controls {
   background-color: #014f86;

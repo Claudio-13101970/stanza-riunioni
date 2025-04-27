@@ -167,19 +167,35 @@ window.addEventListener('DOMContentLoaded', getDevices);
 cameraSelect.addEventListener('change', async () => {
   if (!localStream) return;
 
+  const localVideo = document.getElementById(socket.id);
+
   if (cameraSelect.value === 'off') {
-    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
+    // Spegni videocamera
+    const sender = Object.values(peers)
+      .flatMap(peer => peer.getSenders())
+      .find(s => s.track.kind === 'video');
     if (sender) sender.replaceTrack(null);
-    document.getElementById(socket.id).classList.add('avatar');
+    // Rimuovi lo stream e mostra avatar
+    localVideo.srcObject = null;
+    localVideo.classList.add('avatar');
+    // forza il fade-in
+    setTimeout(() => localVideo.classList.add('fade-in'), 0);
   } else {
-    const videoTrack = (await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } })).getVideoTracks()[0];
-    const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
+    // Riaccendi videocamera
+    const videoTrack = (await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: cameraSelect.value } }
+    })).getVideoTracks()[0];
+    const sender = Object.values(peers)
+      .flatMap(peer => peer.getSenders())
+      .find(s => s.track.kind === 'video');
     if (sender) sender.replaceTrack(videoTrack);
+    // aggiorna localStream
     const localSender = localStream.getVideoTracks()[0];
     localStream.removeTrack(localSender);
     localStream.addTrack(videoTrack);
-    document.getElementById(socket.id).srcObject = localStream;
-    document.getElementById(socket.id).classList.remove('avatar');
+    // ripristina stream e rimuovi avatar
+    localVideo.srcObject = localStream;
+    localVideo.classList.remove('avatar', 'fade-in');
   }
 });
 
