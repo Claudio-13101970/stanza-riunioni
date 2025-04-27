@@ -62,7 +62,6 @@ function adjustVideoLayout() {
 }
 
 startButton.onclick = async () => {
-  await getDevices();
   await startVideo();
 };
 
@@ -77,7 +76,7 @@ shareButton.onclick = async () => {
 
 leaveButton.onclick = () => {
   socket.disconnect();
-  window.location.reload();
+  window.close(); // Chiude la finestra aperta in target=_blank
 };
 
 socket.on('all-users', async (users) => {
@@ -147,3 +146,28 @@ function createPeer(id) {
 
   return peer;
 }
+
+// Popola i dispositivi al caricamento
+window.addEventListener('DOMContentLoaded', getDevices);
+
+// Cambio dinamico dei dispositivi
+cameraSelect.addEventListener('change', async () => {
+  if (!localStream) return;
+  const videoTrack = (await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: cameraSelect.value } } })).getVideoTracks()[0];
+  const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'video');
+  if (sender) sender.replaceTrack(videoTrack);
+  const localSender = localStream.getVideoTracks()[0];
+  localStream.removeTrack(localSender);
+  localStream.addTrack(videoTrack);
+  document.getElementById(socket.id).srcObject = localStream;
+});
+
+micSelect.addEventListener('change', async () => {
+  if (!localStream) return;
+  const audioTrack = (await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: micSelect.value } } })).getAudioTracks()[0];
+  const sender = Object.values(peers).flatMap(peer => peer.getSenders()).find(s => s.track.kind === 'audio');
+  if (sender) sender.replaceTrack(audioTrack);
+  const localSender = localStream.getAudioTracks()[0];
+  localStream.removeTrack(localSender);
+  localStream.addTrack(audioTrack);
+});
